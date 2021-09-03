@@ -1,6 +1,8 @@
 // Copyright 2011-2020, Molecular Matters GmbH <office@molecular-matters.com>
 // See LICENSE.txt for licensing details (2-clause BSD License: https://opensource.org/licenses/BSD-2-Clause)
 
+#include <string>
+
 #include "PsdPch.h"
 #include "PsdParseImageResourcesSection.h"
 
@@ -28,6 +30,7 @@ ImageResourcesSection* ParseImageResourcesSection(const Document* document, File
 	PSD_ASSERT_NOT_NULL(allocator);
 
 	ImageResourcesSection* imageResources = memoryUtil::Allocate<ImageResourcesSection>(allocator);
+	imageResources->resolutionInfo = nullptr;
 	imageResources->alphaChannels = nullptr;
 	imageResources->alphaChannelCount = 0u;
 	imageResources->iccProfile = nullptr;
@@ -73,10 +76,29 @@ ImageResourcesSection* ParseImageResourcesSection(const Document* document, File
 			case imageResource::PRINT_FLAGS:
 			case imageResource::PRINT_FLAGS_INFO:
 			case imageResource::PRINT_INFO:
-			case imageResource::RESOLUTION_INFO:
 				// we are currently not interested in this resource, skip it
 				reader.Skip(resourceSize);
 				break;
+				
+			case imageResource::RESOLUTION_INFO:
+			{
+				imageResources->resolutionInfo = new ResolutionInfo();
+				imageResources->resolutionInfo->hRes = fileUtil::ReadFromFileBE<int32_t>(reader);
+				imageResources->resolutionInfo->hResUnit = fileUtil::ReadFromFileBE<int16_t>(reader);
+				imageResources->resolutionInfo->widthUnit = fileUtil::ReadFromFileBE<int16_t>(reader);
+				imageResources->resolutionInfo->vRes = fileUtil::ReadFromFileBE<int32_t>(reader);
+				imageResources->resolutionInfo->vResUnit = fileUtil::ReadFromFileBE<int16_t>(reader);
+				imageResources->resolutionInfo->heightUnit = fileUtil::ReadFromFileBE<int16_t>(reader);
+
+				float hRes = imageResources->resolutionInfo->hRes.toFloat();
+				float vRes = imageResources->resolutionInfo->vRes.toFloat();
+
+				printf("sillyOptimizations");
+
+				(void)hRes;
+				(void)vRes;
+				break;
+			}
 
 			case imageResource::DISPLAY_INFO:
 			{
@@ -128,7 +150,6 @@ ImageResourcesSection* ParseImageResourcesSection(const Document* document, File
 			case imageResource::ICC_UNTAGGED_PROFILE:
 			case imageResource::ID_SEED_NUMBER:
 			case imageResource::BACKGROUND_COLOR:
-			case imageResource::ALPHA_CHANNEL_UNICODE_NAMES:
 			case imageResource::ALPHA_IDENTIFIERS:
 			case imageResource::COPYRIGHT_FLAG:
 			case imageResource::PATH_SELECTION_STATE:
@@ -217,7 +238,8 @@ ImageResourcesSection* ParseImageResourcesSection(const Document* document, File
 				reader.Read(imageResources->exifData, resourceSize);
 			}
 			break;
-
+			
+			case imageResource::ALPHA_CHANNEL_UNICODE_NAMES:
 			case imageResource::ALPHA_CHANNEL_ASCII_NAMES:
 			{
 				// check whether storage for alpha channels has been allocated yet
@@ -230,24 +252,39 @@ ImageResourcesSection* ParseImageResourcesSection(const Document* document, File
 					imageResources->alphaChannels = memoryUtil::AllocateArray<AlphaChannel>(allocator, channelCount);
 				}
 
-				// the names of the alpha channels are stored as a series of Pascal strings
-				unsigned int channel = 0;
-				int64_t remaining = resourceSize;
-				while (remaining > 0)
+				if (imageResource::ALPHA_CHANNEL_ASCII_NAMES == id)
 				{
-					char channelName[512] = {};
-					const uint8_t channelNameLength = fileUtil::ReadFromFileBE<uint8_t>(reader);
-					if (channelNameLength > 0)
+					// the names of the alpha channels are stored as a series of Pascal strings
+					unsigned int channel = 0;
+					int64_t remaining = resourceSize;
+					while (remaining > 0)
 					{
-						reader.Read(channelName, channelNameLength);
+						util::FixedSizeString<> string = util::ReadPascalString(reader);
+
+						remaining -= 1 + string.GetLength();
+
+						if (channel < imageResources->alphaChannelCount)
+						{
+							imageResources->alphaChannels[channel].asciiName.Assign(string.c_str());
+							++channel;
+						}
 					}
-
-					remaining -= 1 + channelNameLength;
-
-					if (channel < imageResources->alphaChannelCount)
+				}
+				else // if (ALPHA_CHANNEL_UNICODE_NAMES == id)
+				{
+					unsigned int channel = 0;
+					int64_t remaining = resourceSize;
+					while (remaining > 0)
 					{
-						imageResources->alphaChannels[channel].asciiName.Assign(channelName);
-						++channel;
+						util::FixedSizeString<char16_t> string = util::ReadUnicodeString(reader);
+
+						remaining -= 1 + string.GetLength();
+
+						if (channel < imageResources->alphaChannelCount)
+						{
+							imageResources->alphaChannels[channel].unicodeName.Assign(string.c_str());
+							++channel;
+						}
 					}
 				}
 			}
@@ -278,6 +315,7 @@ void DestroyImageResourcesSection(ImageResourcesSection*& section, Allocator* al
 		memoryUtil::FreeArray(allocator, section->thumbnail->binaryJpeg);
 	}
 
+	delete section->resolutionInfo;
 	memoryUtil::Free(allocator, section->thumbnail);
 	memoryUtil::FreeArray(allocator, section->xmpMetadata);
 	memoryUtil::FreeArray(allocator, section->exifData);

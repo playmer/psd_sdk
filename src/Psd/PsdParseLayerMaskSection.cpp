@@ -688,7 +688,10 @@ namespace
 				while (toRead > 0)
 				{
 					const uint32_t signature = fileUtil::ReadFromFileBE<uint32_t>(reader);
-					if (signature != util::Key<'8', 'B', 'I', 'M'>::VALUE)
+					const char* sig = reinterpret_cast<const char*>(&signature);
+
+					(void)sig;
+					if (signature != util::Key<'8', 'B', 'I', 'M'>::VALUE && signature != util::Key<'8', 'B', '6', '4'>::VALUE)
 					{
 						PSD_ERROR("LayerMaskSection", "Additional Layer Information section seems to be corrupt, signature does not match \"8BIM\".");
 						return layerMaskSection;
@@ -696,9 +699,9 @@ namespace
 
 					const uint32_t key = fileUtil::ReadFromFileBE<uint32_t>(reader);
 
-					// length needs to be rounded to a multiple of 4
+					// length needs to be rounded to be even
 					uint32_t length = fileUtil::ReadFromFileBE<uint32_t>(reader);
-					length = bitUtil::RoundUpToMultiple(length, 4u);
+					length = bitUtil::RoundUpToMultiple(length, 2u);
 
 					// read "Section divider setting" to identify whether a layer is a group, or a section divider
 					if (key == util::Key<'l', 's', 'c', 't'>::VALUE)
@@ -918,7 +921,10 @@ void ExtractLayer(const Document* document, File* file, Allocator* allocator, La
 
 		// channel data is stored in 4 different formats, which is denoted by a 2-byte integer
 		PSD_ASSERT(channel->data == nullptr, "Channel data has already been loaded.");
+		//const uint32_t compressionType = fileUtil::ReadFromFileBE<uint32_t>(reader);
 		const uint16_t compressionType = fileUtil::ReadFromFileBE<uint16_t>(reader);
+		const char* data = reinterpret_cast<const char*>(&compressionType);
+		(void)data;
 		if (compressionType == compressionType::RAW)
 		{
 			if (document->bitsPerChannel == 8)

@@ -9,6 +9,27 @@ PSD_NAMESPACE_BEGIN
 struct AlphaChannel;
 struct Thumbnail;
 
+struct Fixed
+{
+	Fixed() = default;
+	Fixed(int32_t aFixed) : mFixed{ aFixed } {};
+
+	float toFloat()
+	{
+		return mFixed / 65536.0f;
+	}
+	int32_t mFixed;
+};
+
+struct ResolutionInfo
+{
+	Fixed hRes = 0;
+	int16_t hResUnit = 0;
+	int16_t widthUnit = 0;
+	Fixed vRes = 0;
+	int16_t vResUnit = 0;
+	int16_t heightUnit = 0;
+};
 
 /// \ingroup Sections
 /// \class ImageResourcesSection
@@ -16,6 +37,7 @@ struct Thumbnail;
 /// \sa AlphaChannel
 struct ImageResourcesSection
 {
+	ResolutionInfo* resolutionInfo;		///< The resolution information for the canvas.
 	AlphaChannel* alphaChannels;			///< An array of alpha channels, having alphaChannelCount entries.
 	unsigned int alphaChannelCount;			///< The number of alpha channels stored in the array.
 

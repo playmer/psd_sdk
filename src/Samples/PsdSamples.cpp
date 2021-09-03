@@ -228,7 +228,8 @@ static std::wstring GetSampleOutputPath(void)
 // ---------------------------------------------------------------------------------------------------------------------
 int SampleReadPsd(void)
 {
-	const std::wstring srcPath = GetSampleInputPath() + L"Sample.psd";
+	const std::wstring srcPath = GetSampleInputPath() + L"luna.psd";
+	//const std::wstring srcPath = GetSampleInputPath() + L"Sample.psd";
 
 	MallocAllocator allocator;
 	NativeFile file(&allocator);
@@ -762,11 +763,7 @@ int SampleWritePsd(void)
 
 // ---------------------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------
-#if PSD_USE_MSCVC
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
-#else
-int main(int argc, const char * argv[])
-#endif
 {
 	{
 		const int result = SampleReadPsd();

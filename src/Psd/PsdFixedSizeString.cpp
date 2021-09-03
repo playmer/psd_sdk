@@ -2,7 +2,11 @@
 // See LICENSE.txt for licensing details (2-clause BSD License: https://opensource.org/licenses/BSD-2-Clause)
 
 #include "PsdPch.h"
+#include "PsdAssert.h"
+#include "PsdBitUtil.h"
 #include "PsdFixedSizeString.h"
+#include "PsdSyncFileReader.h"
+#include "PsdSyncFileUtil.h"
 
 #include <cstdarg>
 #include <cctype>
@@ -13,72 +17,34 @@ PSD_NAMESPACE_BEGIN
 
 namespace util
 {
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	void FixedSizeString::Assign(const char* const str)
+	FixedSizeString<char> ReadPascalString(SyncFileReader& reader, size_t aPadding)
 	{
-		m_length = strlen(str);
-		PSD_ASSERT(m_length < CAPACITY, "String \"%s\" does not fit into FixedSizeString.", str);
-
-		memcpy(m_string, str, m_length+1);
-	}
-
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	void FixedSizeString::Append(const char* str)
-	{
-		Append(str, strlen(str));
-	}
-
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	void FixedSizeString::Append(const char* str, size_t count)
-	{
-		PSD_ASSERT(m_length + count < CAPACITY, "Cannot append character(s) from string \"%s\". Not enough space left.", str);
-		memcpy(m_string + m_length, str, count);
-		m_length += count;
-		m_string[m_length] = '\0';
-	}
-
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	void FixedSizeString::Clear(void)
-	{
-		m_length = 0;
-		m_string[0] = '\0';
-	}
-
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	bool FixedSizeString::IsEqual(const char* other) const
-	{
-		return (strcmp(m_string, other) == 0);
-	}
-
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	void FixedSizeString::ToLower(void)
-	{
-		for (unsigned int i=0; i < m_length; ++i)
+		char buffer[FixedSizeString<char>::CAPACITY];
+		const uint8_t length = fileUtil::ReadFromFileBE<uint8_t>(reader);
+		const uint32_t paddedNameLength = bitUtil::RoundUpToMultiple(length+1u, aPadding);
+		if (paddedNameLength > 0)
 		{
-			m_string[i] = static_cast<char>(tolower(m_string[i]));
+			reader.Read(buffer, paddedNameLength);
 		}
+		FixedSizeString<char> value;
+		value.Assign(buffer);
+
+		return value;
 	}
 
-
-	// ---------------------------------------------------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------------------------------------------------
-	void FixedSizeString::ToUpper(void)
+	FixedSizeString<char16_t> ReadUnicodeString(SyncFileReader& reader) 
 	{
-		for (unsigned int i=0; i < m_length; ++i)
+		char16_t buffer[FixedSizeString<char16_t>::CAPACITY];
+
+		size_t i = 0;
+		do 
 		{
-			m_string[i] = static_cast<char>(toupper(m_string[i]));
-		}
+			reader.Read(&buffer[i], 1);
+		} while (buffer[i] != u'\0');
+		FixedSizeString<char16_t> value;
+		value.Assign(buffer);
+
+		return value;
 	}
 }
 

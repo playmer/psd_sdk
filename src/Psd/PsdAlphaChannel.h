@@ -25,7 +25,8 @@ struct AlphaChannel
 		};
 	};
 
-	util::FixedSizeString asciiName;				///< The channel's ASCII name.
+	util::FixedSizeString<> asciiName;				///< The channel's ASCII name.
+	util::FixedSizeString<char16_t> unicodeName;				///< The channel's ASCII name.
 	uint16_t colorSpace;							///< The color space the colors are stored in.
 	uint16_t color[4];								///< 16-bit color data with 0 being black and 65535 being white (assuming RGBA).
 	uint16_t opacity;								///< The channel's opacity in the range [0, 100].
